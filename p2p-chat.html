@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Чат</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="slide-in">
+  <div class="mobile-frame">
+    <div class="chat-container">
+      <header class="chat-header">
+        <!-- Будет заполнено динамически -->
+      </header>
+      
+      <div class="messages-container" id="chat-messages">
+        <!-- Сообщения будут загружены динамически -->
+      </div>
+      
+      <div class="message-input-container">
+        <input type="text" id="message-input" placeholder="Введите сообщение...">
+        <button id="send-btn">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <script src="script.js"></script>
+</body>
+</html>

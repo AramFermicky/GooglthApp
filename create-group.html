@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Создать группу</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="slide-in">
+  <div class="mobile-frame">
+    <div class="create-group-container">
+      <header class="create-group-header">
+        <button class="back-btn" onclick="window.history.back()">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
+        <h1>Создать группу</h1>
+      </header>
+      
+      <div class="group-avatar-section">
+        <div class="group-avatar-placeholder" id="group-avatar">
+          <svg viewBox="0 0 24 24" width="40" height="40" fill="currentColor">
+            <path d="M17 20.5C17 18.57 13.97 17 10 17s-7 1.57-7 3.5V22h14v-1.5zM12 11.5c0-1.93 3.03-3.5 7-3.5s7 1.57 7 3.5-3.03 3.5-7 3.5-7-1.57-7-3.5zm-1 0c0 2.73 3.63 4.95 8.2 5.42V20h-1.5v-2.14c-1.67-.28-3.02-.97-4.05-1.86-1.11-.96-1.75-2.18-1.75-3.5 0-.7.19-1.36.5-1.94L6.2 7.05C5.5 8.23 5 9.66 5 11.5z"/>
+          </svg>
+        </div>
+        <input type="file" accept="image/*" class="hidden" id="avatarInput" onchange="updateGroupAvatar()">
+        <button class="change-avatar-btn" onclick="document.getElementById('avatarInput').click()">
+          Изменить фото
+        </button>
+      </div>
+      
+      <div class="form-group">
+        <label>Название группы</label>
+        <input type="text" id="group-name" placeholder="Введите название группы">
+      </div>
+      
+      <div class="form-group">
+        <label>Описание (необязательно)</label>
+        <textarea id="group-description" placeholder="Расскажите о группе" rows="3"></textarea>
+      </div>
+      
+      <div class="group-members-section">
+        <h2>Участники группы</h2>
+        <div class="search-box">
+          <input type="text" id="member-search" placeholder="Поиск по имени или email...">
+        </div>
+        
+        <div class="members-list" id="members-list">
+          <div class="empty-state">
+            <div class="empty-icon">👥</div>
+            <p>Добавьте участников в группу</p>
+          </div>
+        </div>
+      </div>
+      
+      <button class="primary-btn create-group-btn" id="create-group-btn">
+        Создать группу
+      </button>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('member-search');
+      const membersList = document.getElementById('members-list');
+      
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value;
+        
+        if (query.length < 2) {
+          membersList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">👥</div>
+              <p>Добавьте участников в группу</p>
+            </div>
+          `;
+          return;
+        }
+        
+        const results = AuthSystem.searchUsers(query);
+        
+        if (results.length > 0) {
+          membersList.innerHTML = results.map(user => `
+            <div class="contact-item" onclick="toggleMember('${user.id}', this)">
+              <div class="contact-avatar">${user.name.charAt(0)}</div>
+              <div class="contact-info">
+                <div class="contact-name">${user.name}</div>
+                <div class="contact-email">${user.email}</div>
+              </div>
+              <div class="member-checkbox">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                  <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </div>
+            </div>
+          `).join('');
+        } else {
+          membersList.innerHTML = `
+            <div class="no-results">
+              Пользователи не найдены
+            </div>
+          `;
+        }
+      });
+      
+      window.toggleMember = (userId, element) => {
+        element.classList.toggle('selected');
+        
+        const checkbox = element.querySelector('.member-checkbox svg');
+        if (element.classList.contains('selected')) {
+          checkbox.innerHTML = `
+            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9 14l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+          `;
+        } else {
+          checkbox.innerHTML = `
+            <path fill="currentColor" d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/>
+          `;
+        }
+      };
+      
+      document.getElementById('create-group-btn').addEventListener('click', () => {
+        const groupName = document.getElementById('group-name').value;
+        const groupDescription = document.getElementById('group-description').value;
+        
+        if (!groupName) {
+          showError('Введите название группы');
+          return;
+        }
+        
+        const selectedMembers = [];
+        document.querySelectorAll('.contact-item.selected').forEach(item => {
+          const userId = item.getAttribute('onclick').match(/'([^']+)'/)[1];
+          selectedMembers.push(userId);
+        });
+        
+        if (selectedMembers.length === 0) {
+          showError('Выберите хотя бы одного участника');
+          return;
+        }
+        
+        const currentUser = AuthSystem.getCurrentUser();
+        selectedMembers.push(currentUser.id);
+        
+        let groups = JSON.parse(localStorage.getItem('googlthapp_groups') || '[]');
+        const newGroup = {
+          id: Date.now().toString(),
+          name: groupName,
+          description: groupDescription,
+          creatorId: currentUser.id,
+          members: selectedMembers,
+          createdAt: new Date().toISOString(),
+          avatar: document.getElementById('group-avatar').style.backgroundImage ? 
+                   document.getElementById('group-avatar').style.backgroundImage.replace('url("', '').replace('")', '') : null
+        };
+        
+        groups.push(newGroup);
+        localStorage.setItem('googlthapp_groups', JSON.stringify(groups));
+        
+        showSuccess('Группа создана успешно!');
+        setTimeout(() => {
+          navigateTo('app.html');
+        }, 1500);
+      });
+    });
+    
+    function updateGroupAvatar() {
+      const file = document.getElementById('avatarInput').files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        document.getElementById('group-avatar').style.backgroundImage = `url(${e.target.result})`;
+        document.getElementById('group-avatar').style.backgroundColor = 'transparent';
+        document.getElementById('group-avatar').innerHTML = '';
+      };
+      reader.readAsDataURL(file);
+    }
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

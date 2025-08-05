@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Настройки GooglthApp</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="slide-in">
+  <div class="mobile-frame">
+    <div class="settings-container">
+      <header class="settings-header">
+        <button class="back-btn" onclick="window.history.back()">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
+        <h1>Настройки</h1>
+      </header>
+      
+      <div class="settings-section">
+        <h2>Основные</h2>
+        <div class="setting-item">
+          <span>Уведомления</span>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <span>Звук уведомлений</span>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+        <div class="setting-item">
+          <span>Вибрация</span>
+          <label class="switch">
+            <input type="checkbox" checked>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <h2>Конфиденциальность</h2>
+        <div class="setting-item">
+          <span>Статус "Онлайн"</span>
+          <div class="setting-value">Всем</div>
+        </div>
+        <div class="setting-item">
+          <span>Фото профиля</span>
+          <div class="setting-value">Контакты</div>
+        </div>
+        <div class="setting-item">
+          <span>История сообщений</span>
+          <div class="setting-value">Всегда</div>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <h2>Хранилище</h2>
+        <div class="storage-info">
+          <div class="storage-bar">
+            <div class="storage-fill" style="width: 45%"></div>
+          </div>
+          <div class="storage-text">Использовано 1.2 ГБ из 15 ГБ</div>
+        </div>
+        <div class="setting-item" onclick="alert('Очистка кэша')">
+          <span>Очистить кэш</span>
+        </div>
+      </div>
+      
+      <div class="settings-section">
+        <div class="setting-item danger" onclick="navigateTo('old_user.html')">
+          <span>Выйти из аккаунта</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script src="script.js"></script>
+</body>
+</html>

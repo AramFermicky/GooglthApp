@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Новый чат</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="slide-in">
+  <div class="mobile-frame">
+    <div class="new-chat-container">
+      <header class="new-chat-header">
+        <button class="back-btn" onclick="window.history.back()">
+          <svg viewBox="0 0 24 24" width="24" height="24">
+            <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
+          </svg>
+        </button>
+        <h1>Новый чат</h1>
+      </header>
+      
+      <div class="search-box">
+        <input type="text" id="chat-search" placeholder="Поиск по имени или email...">
+      </div>
+      
+      <div class="chats-list" id="chats-list">
+        <div class="empty-state">
+          <div class="empty-icon">🔍</div>
+          <h3>Найдите своих друзей</h3>
+          <p>Введите имя или email для поиска пользователей GooglthApp</p>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchInput = document.getElementById('chat-search');
+      const chatsList = document.getElementById('chats-list');
+      
+      // Поиск пользователей для нового чата
+      searchInput.addEventListener('input', () => {
+        const query = searchInput.value;
+        
+        if (query.length < 2) {
+          chatsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <h3>Найдите своих друзей</h3>
+              <p>Введите имя или email для поиска пользователей GooglthApp</p>
+            </div>
+          `;
+          return;
+        }
+        
+        const results = AuthSystem.searchUsers(query);
+        
+        if (results.length > 0) {
+          chatsList.innerHTML = results.map(user => `
+            <div class="contact-item" onclick="startChat('${user.id}', '${user.name}')">
+              <div class="contact-avatar">${user.name.charAt(0)}</div>
+              <div class="contact-info">
+                <div class="contact-name">${user.name}</div>
+                <div class="contact-email">${user.email}</div>
+              </div>
+              <div class="chat-status ${user.online ? 'online' : ''}"></div>
+            </div>
+          `).join('');
+        } else {
+          chatsList.innerHTML = `
+            <div class="no-results">
+              Пользователи не найдены
+            </div>
+          `;
+        }
+      });
+      
+      // Начало чата
+      window.startChat = (userId, userName) => {
+        // Сохранение выбранного пользователя в сессии
+        sessionStorage.setItem('p2p_target_user', JSON.stringify({ id: userId, name: userName }));
+        
+        // Попытка установить P2P-соединение
+        if (window.p2pManager) {
+          window.p2pManager.createOffer(userId).then(result => {
+            if (!result.success) {
+              console.error('Не удалось создать предложение:', result.error);
+            }
+          });
+        }
+        
+        navigateTo('p2p-chat.html');
+      };
+    });
+  </script>
+  <script src="script.js"></script>
+</body>
+</html>

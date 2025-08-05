@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Создать аккаунт</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="slide-in">
+  <div class="mobile-frame">
+    <div class="auth-container">
+      <div class="google-logo">
+        <span class="G">G</span>
+        <span class="o">o</span>
+        <span class="o">o</span>
+        <span class="g">g</span>
+        <span class="l">l</span>
+        <span class="t">t</span>
+        <span class="h">h</span>
+        <span class="A">A</span>
+        <span class="p">p</span>
+        <span class="p">p</span>
+      </div>
+      
+      <div class="login-card">
+        <h2>Создать аккаунт</h2>
+        
+        <div class="form-group">
+          <label>Имя</label>
+          <input type="text" id="signup-name" placeholder="Введите ваше имя">
+        </div>
+        
+        <div class="form-group">
+          <label>Электронная почта</label>
+          <input type="email" id="signup-email" placeholder="example@gmail.com" onblur="checkEmailAvailability()">
+          <div id="email-status" style="margin-top: 5px; font-size: 0.8rem; height: 16px;"></div>
+        </div>
+        
+        <div class="form-group">
+          <label>Пароль</label>
+          <input type="password" id="signup-password" placeholder="••••••••" oninput="checkPasswordStrength()">
+          <div id="password-strength" style="margin-top: 5px; font-size: 0.8rem; height: 16px;"></div>
+        </div>
+        
+        <div class="form-group">
+          <label>Подтвердите пароль</label>
+          <input type="password" id="signup-confirm" placeholder="••••••••" oninput="checkPasswordMatch()">
+          <div id="password-match" style="margin-top: 5px; font-size: 0.8rem; height: 16px;"></div>
+        </div>
+        
+        <button class="google-btn primary" id="signup-btn">
+          Зарегистрироваться
+        </button>
+        
+        <div class="divider">
+          <span>или</span>
+        </div>
+        
+        <button class="google-btn" id="google-signup">
+          <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px;">
+            <path d="M22.56 12.25c0-.73-.06-1.43-.18-2.11H12v3.87h5.76c-.25 1.44-1.01 2.68-2.1 3.55v2.3h3.43c2.02-1.85 3.18-4.45 3.18-7.38z" fill="#4285F4"/>
+            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.43-2.66c-.99.67-2.22 1.19-3.85 1.19-2.96 0-5.43-1.99-6.32-4.64H3.31v2.85C5.14 20.03 8.3 23 12 23z" fill="#34A853"/>
+            <path d="M5.68 14.35c-.16-.48-.27-.99-.27-1.5 0-.52.11-1.02.27-1.5v-2.85H3.31C2.41 8.01 1.5 9.61 1.5 11.5 1.5 13.39 2.41 14.99 3.31 16.5l2.37-2.15z" fill="#FBBC05"/>
+            <path d="M12 5.4c1.54 0 2.93.52 4.01 1.46l2.99-2.99C17.06 2.72 14.71 2 12 2 7.28 2 3.1 4.6 1.5 8.4l3.31 2.54c.9-2.83 3.54-4.94 6.19-4.94z" fill="#EA4335"/>
+          </svg>
+          Войти через Google
+        </button>
+        
+        <div class="auth-footer">
+          <p>Уже есть аккаунт? <a href="old_user.html">Войти</a></p>
+        </div>
+      </div>
+      
+      <div class="google-footer">
+        <div class="footer-links">
+          <a href="#">Политика конфиденциальности</a> • <a href="#">Условия использования</a>
+        </div>
+        <div class="language-selector">
+          Русский ▼
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <script type="module" src="script.js"></script>
+  <script>
+    function checkEmailAvailability() {
+      const email = document.getElementById('signup-email').value;
+      const statusEl = document.getElementById('email-status');
+      
+      if (!email) {
+        statusEl.textContent = '';
+        statusEl.style.color = '';
+        return;
+      }
+      
+      const emailExists = window.AuthSystem ? window.AuthSystem.emailExists(email) : false;
+      
+      if (emailExists) {
+        statusEl.textContent = 'Этот email уже используется';
+        statusEl.style.color = '#ea4335';
+      } else {
+        statusEl.textContent = 'Email доступен';
+        statusEl.style.color = '#34a853';
+      }
+    }
+    
+    function checkPasswordStrength() {
+      const password = document.getElementById('signup-password').value;
+      const strengthEl = document.getElementById('password-strength');
+      
+      if (!password) {
+        strengthEl.textContent = '';
+        return;
+      }
+      
+      let strength = 0;
+      if (password.length >= 8) strength++;
+      if (/[A-Z]/.test(password)) strength++;
+      if (/[0-9]/.test(password)) strength++;
+      if (/[^A-Za-z0-9]/.test(password)) strength++;
+      
+      const strengthText = [
+        'Слабый пароль',
+        'Средний пароль',
+        'Хороший пароль',
+        'Надежный пароль'
+      ][strength];
+      
+      strengthEl.textContent = strengthText;
+      strengthEl.style.color = [
+        '#ea4335',
+        '#fbbc05',
+        '#4285f4',
+        '#34a853'
+      ][strength];
+    }
+    
+    function checkPasswordMatch() {
+      const password = document.getElementById('signup-password').value;
+      const confirm = document.getElementById('signup-confirm').value;
+      const matchEl = document.getElementById('password-match');
+      
+      if (!confirm) {
+        matchEl.textContent = '';
+        return;
+      }
+      
+      if (password === confirm) {
+        matchEl.textContent = 'Пароли совпадают';
+        matchEl.style.color = '#34a853';
+      } else {
+        matchEl.textContent = 'Пароли не совпадают';
+        matchEl.style.color = '#ea4335';
+      }
+    }
+    
+    // Добавляем обработку событий после загрузки DOM
+    document.addEventListener('DOMContentLoaded', () => {
+      // Обработчик регистрации
+      document.getElementById('signup-btn').addEventListener('click', () => {
+        const name = document.getElementById('signup-name').value;
+        const email = document.getElementById('signup-email').value;
+        const password = document.getElementById('signup-password').value;
+        const confirm = document.getElementById('signup-confirm').value;
+        
+        if (!name || !email || !password || !confirm) {
+          window.showError('Пожалуйста, заполните все поля');
+          return;
+        }
+        
+        if (password !== confirm) {
+          window.showError('Пароли не совпадают');
+          return;
+        }
+        
+        if (password.length < 6) {
+          window.showError('Пароль должен быть не менее 6 символов');
+          return;
+        }
+        
+        // Проверка существования email
+        if (window.AuthSystem.emailExists(email)) {
+          window.showError('Этот email уже используется');
+          return;
+        }
+        
+        // Регистрация пользователя
+        const result = window.AuthSystem.register(name, email, password);
+        
+        if (result.success) {
+          window.showSuccess('Регистрация успешна! Добро пожаловать в GooglthApp');
+          setTimeout(() => {
+            window.navigateTo('app.html');
+          }, 1500);
+        } else {
+          window.showError(result.message);
+        }
+      });
+      
+      // Обработчик Google входа
+      document.getElementById('google-signup').addEventListener('click', () => {
+        window.showError('Войти в гугл аккаунт через http.googlthapp.com не удалось :(', 5000);
+      });
+    });
+  </script>
+</body>
+</html>
