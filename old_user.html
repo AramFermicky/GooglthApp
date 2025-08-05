@@ -2,12 +2,12 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Вход в аккаунт</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="slide-in">
-  <div class="mobile-frame">
+  <div class="mobile-frame android">
     <div class="auth-container">
       <div class="google-logo">
         <span class="G">G</span>
@@ -22,7 +22,7 @@
         <span class="p">p</span>
       </div>
       
-      <div class="login-card">
+      <div class="login-card scrollable-form">
         <h2>Вход в аккаунт</h2>
         
         <div class="form-group">
@@ -48,15 +48,20 @@
           <span>или</span>
         </div>
         
-        <button class="google-btn" id="google-login">
-          <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px;">
-            <path d="M22.56 12.25c0-.73-.06-1.43-.18-2.11H12v3.87h5.76c-.25 1.44-1.01 2.68-2.1 3.55v2.3h3.43c2.02-1.85 3.18-4.45 3.18-7.38z" fill="#4285F4"/>
-            <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.43-2.66c-.99.67-2.22 1.19-3.85 1.19-2.96 0-5.43-1.99-6.32-4.64H3.31v2.85C5.14 20.03 8.3 23 12 23z" fill="#34A853"/>
-            <path d="M5.68 14.35c-.16-.48-.27-.99-.27-1.5 0-.52.11-1.02.27-1.5v-2.85H3.31C2.41 8.01 1.5 9.61 1.5 11.5 1.5 13.39 2.41 14.99 3.31 16.5l2.37-2.15z" fill="#FBBC05"/>
-            <path d="M12 5.4c1.54 0 2.93.52 4.01 1.46l2.99-2.99C17.06 2.72 14.71 2 12 2 7.28 2 3.1 4.6 1.5 8.4l3.31 2.54c.9-2.83 3.54-4.94 6.19-4.94z" fill="#EA4335"/>
-          </svg>
-          Войти через Google
-        </button>
+        <div class="google-buttons-container">
+          <button class="email-btn" id="email-login">
+            Войти через email
+          </button>
+          <button class="google-btn" id="google-login">
+            <svg viewBox="0 0 24 24" width="18" height="18" style="margin-right: 8px;">
+              <path d="M22.56 12.25c0-.73-.06-1.43-.18-2.11H12v3.87h5.76c-.25 1.44-1.01 2.68-2.1 3.55v2.3h3.43c2.02-1.85 3.18-4.45 3.18-7.38z" fill="#4285F4"/>
+              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.43-2.66c-.99.67-2.22 1.19-3.85 1.19-2.96 0-5.43-1.99-6.32-4.64H3.31v2.85C5.14 20.03 8.3 23 12 23z" fill="#34A853"/>
+              <path d="M5.68 14.35c-.16-.48-.27-.99-.27-1.5 0-.52.11-1.02.27-1.5v-2.85H3.31C2.41 8.01 1.5 9.61 1.5 11.5 1.5 13.39 2.41 14.99 3.31 16.5l2.37-2.15z" fill="#FBBC05"/>
+              <path d="M12 5.4c1.54 0 2.93.52 4.01 1.46l2.99-2.99C17.06 2.72 14.71 2 12 2 7.28 2 3.1 4.6 1.5 8.4l3.31 2.54c.9-2.83 3.54-4.94 6.19-4.94z" fill="#EA4335"/>
+            </svg>
+            Войти через Google
+          </button>
+        </div>
         
         <div class="auth-footer">
           <p>Нет аккаунта? <a href="new_user.html">Создать аккаунт</a></p>
@@ -74,31 +79,182 @@
     </div>
   </div>
   
-  <script type="module" src="script.js"></script>
   <script>
-    function checkEmailAvailability() {
-      const email = document.getElementById('login-identifier').value;
-      const statusEl = document.getElementById('email-status');
-      
-      if (!email) {
-        statusEl.textContent = '';
-        statusEl.style.color = '';
-        return;
-      }
-      
-      const emailExists = window.AuthSystem ? window.AuthSystem.emailExists(email) : false;
-      
-      if (emailExists) {
-        statusEl.textContent = 'Аккаунт найден';
-        statusEl.style.color = '#34a853';
-      } else {
-        statusEl.textContent = 'Email не найден';
-        statusEl.style.color = '#ea4335';
-      }
-    }
-    
-    // Добавляем обработку событий после загрузки DOM
     document.addEventListener('DOMContentLoaded', () => {
+      // Система аутентификации
+      const AuthSystem = {
+        init() {
+          if (!localStorage.getItem('googlthapp_users')) {
+            localStorage.setItem('googlthapp_users', JSON.stringify([]));
+          }
+          
+          if (!localStorage.getItem('googlthapp_peers')) {
+            localStorage.setItem('googlthapp_peers', JSON.stringify({}));
+          }
+          
+          if (!localStorage.getItem('googlthapp_groups')) {
+            localStorage.setItem('googlthapp_groups', JSON.stringify([]));
+          }
+        },
+        
+        hashPassword(password) {
+          let hash = 0;
+          for (let i = 0; i < password.length; i++) {
+            const char = password.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+          }
+          return Math.abs(hash).toString(16);
+        },
+        
+        register(name, email, password) {
+          const users = JSON.parse(localStorage.getItem('googlthapp_users'));
+          
+          // Проверка существования email (с учетом регистра)
+          const emailLower = email.toLowerCase();
+          if (users.some(user => user.email.toLowerCase() === emailLower)) {
+            return { success: false, message: 'Этот email уже используется' };
+          }
+          
+          const newUser = {
+            id: Date.now().toString(),
+            name: name,
+            email: email,
+            password: this.hashPassword(password),
+            createdAt: new Date().toISOString(),
+            peerId: this.generatePeerId(),
+            avatar: null
+          };
+          
+          users.push(newUser);
+          localStorage.setItem('googlthapp_users', JSON.stringify(users));
+          
+          const peers = JSON.parse(localStorage.getItem('googlthapp_peers'));
+          peers[newUser.id] = {
+            connections: [],
+            messages: []
+          };
+          localStorage.setItem('googlthapp_peers', JSON.stringify(peers));
+          
+          return { success: true, user: newUser };
+        },
+        
+        login(email, password) {
+          const users = JSON.parse(localStorage.getItem('googlthapp_users'));
+          const hashedPassword = this.hashPassword(password);
+          const emailLower = email.toLowerCase();
+          
+          const user = users.find(u => 
+            u.email.toLowerCase() === emailLower && 
+            u.password === hashedPassword
+          );
+          
+          if (user) {
+            localStorage.setItem('googlthapp_currentUser', JSON.stringify({
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              peerId: user.peerId,
+              avatar: user.avatar,
+              loggedInAt: new Date().toISOString()
+            }));
+            
+            return { success: true, user: user };
+          }
+          
+          return { success: false, message: 'Неверный email или пароль' };
+        },
+        
+        emailExists(email) {
+          const users = JSON.parse(localStorage.getItem('googlthapp_users'));
+          const emailLower = email.toLowerCase();
+          return users.some(user => user.email.toLowerCase() === emailLower);
+        },
+        
+        isAuthenticated() {
+          return !!localStorage.getItem('googlthapp_currentUser');
+        },
+        
+        generatePeerId() {
+          return 'peer_' + Math.random().toString(36).substr(2, 9);
+        }
+      };
+      
+      // Инициализируем систему
+      AuthSystem.init();
+      
+      // Универсальные функции
+      function navigateTo(url) {
+        document.body.classList.add('slide-in');
+        setTimeout(() => {
+          window.location.href = url;
+        }, 300);
+      }
+
+      function showError(message, duration = 5000) {
+        const error = document.createElement('div');
+        error.className = 'auth-error';
+        error.textContent = message;
+        document.body.appendChild(error);
+        
+        setTimeout(() => {
+          error.style.opacity = '1';
+        }, 10);
+        
+        setTimeout(() => {
+          error.style.opacity = '0';
+          setTimeout(() => {
+            error.remove();
+          }, 300);
+        }, duration);
+      }
+
+      function showSuccess(message, duration = 3000) {
+        const success = document.createElement('div');
+        success.className = 'auth-success';
+        success.textContent = message;
+        document.body.appendChild(success);
+        
+        setTimeout(() => {
+          success.style.opacity = '1';
+        }, 10);
+        
+        setTimeout(() => {
+          success.style.opacity = '0';
+          setTimeout(() => {
+            success.remove();
+          }, 300);
+        }, duration);
+      }
+      
+      // Добавляем функции в глобальный контекст
+      window.navigateTo = navigateTo;
+      window.showError = showError;
+      window.showSuccess = showSuccess;
+      window.AuthSystem = AuthSystem;
+      
+      // Функции проверки
+      function checkEmailAvailability() {
+        const email = document.getElementById('login-identifier').value;
+        const statusEl = document.getElementById('email-status');
+        
+        if (!email) {
+          statusEl.textContent = '';
+          statusEl.style.color = '';
+          return;
+        }
+        
+        const emailExists = window.AuthSystem.emailExists(email);
+        
+        if (emailExists) {
+          statusEl.textContent = 'Аккаунт найден';
+          statusEl.style.color = '#34a853';
+        } else {
+          statusEl.textContent = 'Email не найден';
+          statusEl.style.color = '#ea4335';
+        }
+      }
+      
       // Обработчик входа
       document.getElementById('login-btn').addEventListener('click', () => {
         const identifier = document.getElementById('login-identifier').value;
@@ -125,6 +281,11 @@
       // Обработчик Google входа
       document.getElementById('google-login').addEventListener('click', () => {
         window.showError('Войти в гугл аккаунт через http.googlthapp.com не удалось :(', 5000);
+      });
+      
+      // Обработчик входа через email
+      document.getElementById('email-login').addEventListener('click', () => {
+        window.navigateTo('old_user.html');
       });
     });
   </script>

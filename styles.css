@@ -202,6 +202,26 @@ body {
   color: #1c1c1c;
 }
 
+.group-card, .online-card {
+  background: white;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  text-align: center;
+}
+
+.group-avatar-placeholder img, .online-avatar-placeholder img {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 16px;
+  display: block;
+}
+
+.online-users-section {
+  margin-top: 24px;
+}
+
 .scrollable-list {
   max-height: 300px;
   overflow-y: auto;
@@ -1719,157 +1739,7 @@ input:checked + .slider:before {
   background: #a8a8a8;
 }
 
-/* Дополнительные стили для адаптации под Android */
-@media (max-width: 576px) {
-  .mobile-frame {
-    border-radius: 0;
-    transform: none;
-    max-width: 100%;
-    max-height: 100%;
-  }
-  
-  .app-container {
-    padding-bottom: calc(var(--navigation-bar-height) + 10px);
-  }
-  
-  .android-navigation {
-    display: flex;
-  }
-}
-
-/* Стили для P2P-чата */
-.p2p-chat-container {
-  background: var(--bg-light);
-  height: 100%;
-  display: flex;
-  flex-direction: column;
-}
-
-.p2p-chat-header {
-  background: white;
-  padding: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.08);
-  position: relative;
-  z-index: 10;
-  border-bottom: 1px solid #eee;
-}
-
-.p2p-chat-avatar {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background: linear-gradient(45deg, #4285f4, #34a853);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: bold;
-  font-size: 1.2rem;
-}
-
-.p2p-chat-title {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.p2p-chat-name {
-  font-weight: 500;
-  font-size: 1.1rem;
-}
-
-.p2p-chat-status {
-  color: #34a853;
-  font-size: 0.85rem;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.p2p-chat-status::before {
-  content: '';
-  display: inline-block;
-  width: 8px;
-  height: 8px;
-  background: #34a853;
-  border-radius: 50%;
-}
-
-/* Стили для загрузочного экрана */
-.splash-screen {
-  height: 100%;
-  background: white;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
-  position: relative;
-  overflow: hidden;
-}
-
-.splash-screen::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(135deg, #4285f4, #34a853, #fbbc05, #ea4335);
-  opacity: 0.1;
-  z-index: 0;
-}
-
-.splash-logo {
-  display: flex;
-  gap: 2px;
-  font-size: 2.5rem;
-  font-weight: 800;
-  margin-bottom: 30px;
-  position: relative;
-  z-index: 1;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.splash-loading-container {
-  width: 100%;
-  max-width: 280px;
-  position: relative;
-  z-index: 1;
-}
-
-.splash-loading-bar {
-  height: 6px;
-  background: #e8f0fe;
-  border-radius: 3px;
-  overflow: hidden;
-  margin-bottom: 10px;
-}
-
-.splash-loading-fill {
-  height: 100%;
-  width: 0;
-  background: var(--primary);
-  border-radius: 3px;
-  animation: fillBar 1.5s ease-in-out forwards;
-}
-
-@keyframes fillBar {
-  0% { width: 0; }
-  50% { width: 70%; }
-  100% { width: 100%; }
-}
-
-.splash-loading-text {
-  color: #5f6368;
-  font-size: 0.9rem;
-  text-align: center;
-}
-
-/* Стили для авторизации */
+/* Дополнительные стили для авторизации */
 .auth-container {
   height: 100%;
   background: linear-gradient(135deg, #4285f4, #34a853, #fbbc05, #ea4335);
@@ -2142,6 +2012,77 @@ input:focus, textarea:focus {
 
 .auth-footer a:hover {
   text-decoration: underline;
+}
+
+/* Скроллинг для форм */
+.scrollable-form {
+  overflow-y: auto;
+  max-height: calc(100vh - 200px);
+  padding-bottom: 20px;
+}
+
+.scrollable-form::-webkit-scrollbar {
+  width: 6px;
+}
+
+.scrollable-form::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 3px;
+}
+
+.scrollable-form::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
+}
+
+.scrollable-form::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+.google-buttons-container {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.email-btn {
+  background: white;
+  border: 1px solid #dadce0;
+  border-radius: 24px;
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: #1a73e8;
+  font-weight: 500;
+  width: 100%;
+  text-align: center;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--transition);
+  font-family: 'Google Sans', sans-serif;
+  letter-spacing: 0.2px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+  margin-top: 0;
+}
+
+.email-btn::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translateY(-50%);
+  width: 18px;
+  height: 18px;
+  background-image: url("image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%231a73e8' d='M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/%3E%3C/svg%3E");
+  background-size: contain;
 }
 
 /* Полноэкранный режим для авторизации */
