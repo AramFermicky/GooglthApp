@@ -3,13 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>GooglthApp</title>
+  <title>GooglethApp</title>
   <link rel="stylesheet" href="styles.css">
-  <!-- Firebase через CDN -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
 </head>
 <body class="slide-in">
   <div class="mobile-frame android">
@@ -59,26 +54,15 @@
       
       <div class="groups-section">
         <h2>Ваши группы</h2>
-        <div class="group-card">
-          <div class="group-avatar-placeholder">
-            <svg viewBox="0 0 24 24" width="80" height="80" fill="#4285F4">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7z"/>
-            </svg>
-          </div>
-          <p>У вас пока нет групп</p>
-          <button class="primary-btn" id="create-group-footer-btn">Создать группу</button>
+        <div id="groups-list" class="scrollable-list">
+          <!-- Группы будут загружены через JavaScript -->
         </div>
       </div>
       
       <div class="online-users-section">
         <h2>Онлайн</h2>
-        <div class="online-card" id="online-users">
-          <div class="online-avatar-placeholder">
-            <svg viewBox="0 0 24 24" width="80" height="80" fill="#4285F4">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm-5-9h10v2H7z"/>
-            </svg>
-          </div>
-          <p>Нет пользователей онлайн</p>
+        <div id="online-users" class="scrollable-list">
+          <!-- Онлайн-пользователи будут загружены через JavaScript -->
         </div>
       </div>
       
@@ -164,6 +148,152 @@
     </div>
   </div>
   
-  <script src="script.js"></script>
+  <!-- Firebase через CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  
+  <!-- Наши скрипты -->
+  <script src="firebase.js"></script>
+  <script src="coreApp.js"></script>
+  <script src="scripts.js"></script>
+  
+  <script>
+    // Инициализация приложения
+    document.addEventListener('DOMContentLoaded', () => {
+      // Инициализация Firebase
+      firebase.initialize()
+        .then(() => {
+          // Проверка аутентификации
+          firebase.getAuth().onAuthStateChanged(user => {
+            if (!user) {
+              window.location.href = 'old_user.html';
+              return;
+            }
+            
+            // Обновление информации о пользователе
+            if (user.email) {
+              document.querySelectorAll('.menu-email').forEach(el => {
+                el.textContent = user.email;
+              });
+            }
+            
+            if (user.displayName) {
+              document.querySelectorAll('.menu-title').forEach(el => {
+                el.textContent = `${user.displayName} (GooglethApp)`;
+              });
+            }
+            
+            // Инициализация менеджера чатов
+            chatManager.init().init();
+            
+            // Обработчики для главной страницы
+            document.getElementById('create-group-btn').addEventListener('click', () => {
+              window.navigateTo('create-group.html');
+            });
+            
+            document.getElementById('find-contacts-btn').addEventListener('click', () => {
+              window.navigateTo('find-contacts.html');
+            });
+            
+            document.getElementById('new-chat-btn').addEventListener('click', () => {
+              window.navigateTo('new-chat.html');
+            });
+            
+            // Боковое меню
+            const menuBtn = document.getElementById('menuBtn');
+            const menuOverlay = document.getElementById('menuOverlay');
+            const menuPanel = document.getElementById('menuPanel');
+            
+            menuBtn.addEventListener('click', () => {
+              menuPanel.classList.add('active');
+              menuOverlay.classList.add('active');
+            });
+            
+            menuOverlay.addEventListener('click', () => {
+              menuPanel.classList.remove('active');
+              menuOverlay.classList.remove('active');
+            });
+            
+            // Обработчики меню
+            document.getElementById('profile-menu-item').addEventListener('click', () => {
+              window.navigateTo('profile.html');
+            });
+            
+            document.getElementById('devices-menu-item').addEventListener('click', () => {
+              window.navigateTo('devices.html');
+            });
+            
+            document.getElementById('google-account-menu-item').addEventListener('click', () => {
+              window.navigateTo('google-account.html');
+            });
+            
+            document.getElementById('logout-menu-item').addEventListener('click', async () => {
+              try {
+                await window.app.logoutUser();
+                window.showSuccess('Вы успешно вышли из аккаунта');
+                setTimeout(() => {
+                  window.navigateTo('old_user.html');
+                }, 1500);
+              } catch (error) {
+                window.showError('Ошибка выхода из системы: ' + error.message);
+              }
+            });
+            
+            // Обработчики для меню
+            document.querySelectorAll('.background-option').forEach(option => {
+              option.addEventListener('click', function() {
+                // Удаление активного класса
+                document.querySelectorAll('.background-option').forEach(opt => opt.classList.remove('active'));
+                
+                // Добавление активного класса
+                this.classList.add('active');
+                
+                // Сохранение фона в настройках
+                const background = this.className.split(' ')[1];
+                document.body.setAttribute('data-chat-background', background);
+                
+                // Сохранение в Firestore
+                if (firebase.getAuth().currentUser) {
+                  firebase.getFirestore().collection('users').doc(firebase.getAuth().currentUser.uid).update({
+                    'settings.chatBackground': background
+                  }).catch(error => {
+                    console.error('Ошибка сохранения фона:', error);
+                  });
+                }
+              });
+            });
+            
+            document.querySelectorAll('.theme-option').forEach(option => {
+              option.addEventListener('click', function() {
+                // Удаление активного класса
+                document.querySelectorAll('.theme-option').forEach(opt => opt.classList.remove('active'));
+                
+                // Добавление активного класса
+                this.classList.add('active');
+                
+                // Установка темы
+                const theme = this.className.split(' ')[1].split('-')[1];
+                document.documentElement.setAttribute('data-theme', theme);
+                
+                // Сохранение в Firestore
+                if (firebase.getAuth().currentUser) {
+                  firebase.getFirestore().collection('users').doc(firebase.getAuth().currentUser.uid).update({
+                    'settings.theme': theme
+                  }).catch(error => {
+                    console.error('Ошибка сохранения темы:', error);
+                  });
+                }
+              });
+            });
+          });
+        })
+        .catch(error => {
+          console.error('Ошибка инициализации Firebase:', error);
+          window.showError('Не удалось подключиться к Firebase. Проверьте интернет-соединение.');
+        });
+    });
+  </script>
 </body>
 </html>

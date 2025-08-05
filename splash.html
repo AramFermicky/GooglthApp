@@ -2,13 +2,13 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Loading...</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>GooglethApp</title>
   <link rel="stylesheet" href="styles.css">
 </head>
-<body>
-  <div class="mobile-frame">
-    <div class="splash-screen">
+<body class="splash-screen">
+  <div class="mobile-frame android">
+    <div class="splash-container">
       <div class="google-logo">
         <span class="G">G</span>
         <span class="o">o</span>
@@ -21,19 +21,70 @@
         <span class="p">p</span>
         <span class="p">p</span>
       </div>
-      <div class="loading-container">
-        <div class="loading-bar">
-          <div class="loading-fill"></div>
-        </div>
-        <div class="loading-text">Загрузка GooglthApp...</div>
+      <div class="loading-animation">
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
+        <div class="loading-dot"></div>
       </div>
     </div>
   </div>
   
+  <!-- Firebase через CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  
+  <!-- Наши скрипты -->
+  <script src="firebase.js"></script>
+  <script src="coreApp.js"></script>
+  <script src="scripts.js"></script>
+  
   <script>
-    setTimeout(() => {
-      window.location.href = 'new_user.html';
-    }, 1800);
+    // Инициализация приложения
+    document.addEventListener('DOMContentLoaded', () => {
+      // Инициализация Firebase
+      firebase.initialize()
+        .then(() => {
+          // Проверка аутентификации
+          firebase.getAuth().onAuthStateChanged(user => {
+            setTimeout(() => {
+              if (user) {
+                window.location.href = 'app.html';
+              } else {
+                window.location.href = 'old_user.html';
+              }
+            }, 1500);
+          });
+        })
+        .catch(error => {
+          console.error('Ошибка инициализации Firebase:', error);
+          document.body.innerHTML = `
+            <div class="mobile-frame android">
+              <div class="splash-container">
+                <div class="google-logo">
+                  <span class="G">G</span>
+                  <span class="o">o</span>
+                  <span class="o">o</span>
+                  <span class="g">g</span>
+                  <span class="l">l</span>
+                  <span class="t">t</span>
+                  <span class="h">h</span>
+                  <span class="A">A</span>
+                  <span class="p">p</span>
+                  <span class="p">p</span>
+                </div>
+                <div style="color: #ea4335; text-align: center; margin-top: 20px;">
+                  <p>Ошибка инициализации Firebase</p>
+                  <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Попробовать снова
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+    });
   </script>
 </body>
 </html>
