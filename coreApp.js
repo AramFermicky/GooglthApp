@@ -9,10 +9,8 @@ let onlineUsers = [];
 // Класс для управления чатами
 class ChatManager {
   constructor() {
-    this.groups = [];
     this.chats = [];
     this.chatListeners = {};
-    this.groupListeners = {};
     this.onlineUsersListener = null;
   }
   
@@ -25,46 +23,8 @@ class ChatManager {
     const userId = firebase.getAuth().currentUser?.uid;
     if (!userId) return;
     
-    this.loadGroups();
     this.loadChats();
     this.setupOnlineUsersListener();
-  }
-  
-  loadGroups() {
-    const userId = firebase.getAuth().currentUser?.uid;
-    if (!userId) return;
-    
-    // Удаление предыдущего слушателя
-    if (this.groupListeners[userId]) {
-      this.groupListeners[userId]();
-      delete this.groupListeners[userId];
-    }
-    
-    // Создание нового слушателя
-    this.groupListeners[userId] = firebase.getFirestore().collection('groups')
-      .where('members', 'array-contains', userId)
-      .onSnapshot(snapshot => {
-        this.groups = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            lastMessage: data.lastMessage || null,
-            updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date()
-          };
-        });
-        
-        // Сортировка по последнему сообщению
-        this.groups.sort((a, b) => 
-          (b.lastMessage?.timestamp?.toDate() || b.updatedAt) - 
-          (a.lastMessage?.timestamp?.toDate() || a.updatedAt)
-        );
-        
-        // Обновление интерфейса
-        this.updateGroupsUI();
-      }, error => {
-        console.error('[Chat] Ошибка загрузки групп:', error);
-      });
   }
   
   loadChats() {
@@ -78,30 +38,29 @@ class ChatManager {
     }
     
     // Создание нового слушателя
-    this.chatListeners[userId] = firebase.getFirestore().collection('chats')
-      .where('participants', 'array-contains', userId)
-      .onSnapshot(snapshot => {
-        this.chats = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            ...data,
-            lastMessage: data.lastMessage || null,
-            updatedAt: data.updatedAt ? data.updatedAt.toDate() : new Date()
-          };
-        });
+    this.chatListeners[userId] = firebase.getDatabase().ref(`users/${userId}/chats`).on('value', (snapshot) => {
+      const chatsData = snapshot.val();
+      
+      if (chatsData) {
+        this.chats = Object.entries(chatsData).map(([id, data]) => ({
+          id,
+          ...data
+        }));
         
         // Сортировка по последнему сообщению
         this.chats.sort((a, b) => 
-          (b.lastMessage?.timestamp?.toDate() || b.updatedAt) - 
-          (a.lastMessage?.timestamp?.toDate() || a.updatedAt)
+          (b.lastMessageTime || 0) - (a.lastMessageTime || 0)
         );
         
         // Обновление интерфейса
         this.updateChatsUI();
-      }, error => {
-        console.error('[Chat] Ошибка загрузки чатов:', error);
-      });
+      } else {
+        this.chats = [];
+        this.updateChatsUI();
+      }
+    }, error => {
+      console.error('[Chat] Ошибка загрузки чатов:', error);
+    });
   }
   
   setupOnlineUsersListener() {
@@ -109,64 +68,24 @@ class ChatManager {
       this.onlineUsersListener();
     }
     
-    this.onlineUsersListener = firebase.getFirestore().collection('users')
-      .where('status', '==', 'online')
-      .onSnapshot(snapshot => {
-        onlineUsers = snapshot.docs.map(doc => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            name: data.name,
-            avatar: data.avatar,
-            lastSeen: data.lastSeen ? data.lastSeen.toDate() : null
-          };
-        });
-        
-        // Обновление интерфейса
-        this.updateOnlineUsersUI();
-      }, error => {
-        console.error('[Chat] Ошибка загрузки онлайн-пользователей:', error);
-      });
-  }
-  
-  updateGroupsUI() {
-    const groupsList = document.getElementById('groups-list');
-    if (!groupsList) return;
-    
-    // Очистка списка
-    groupsList.innerHTML = '';
-    
-    if (this.groups.length === 0) {
-      groupsList.innerHTML = `
-        <div class="empty-state">
-          <div class="empty-icon">👥</div>
-          <p>У вас пока нет групп</p>
-          <button class="primary-btn" onclick="navigateTo('create-group.html')">Создать группу</button>
-        </div>
-      `;
-      return;
-    }
-    
-    // Добавление групп
-    this.groups.forEach(group => {
-      const groupElement = document.createElement('div');
-      groupElement.className = 'group-item';
-      groupElement.dataset.groupId = group.id;
-      groupElement.innerHTML = `
-        <div class="group-avatar" style="background: linear-gradient(45deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})">
-          ${group.name.charAt(0).toUpperCase()}
-        </div>
-        <div class="group-info">
-          <div class="group-name">${group.name}</div>
-          <div class="group-members">${group.members.length} участников</div>
-        </div>
-      `;
+    this.onlineUsersListener = firebase.getDatabase().ref('users').orderByChild('status').equalTo('online').on('value', (snapshot) => {
+      const usersData = snapshot.val();
       
-      groupElement.addEventListener('click', () => {
-        this.openGroupChat(group.id);
-      });
+      if (usersData) {
+        onlineUsers = Object.entries(usersData).map(([id, data]) => ({
+          id,
+          name: data.name,
+          avatar: data.avatar,
+          lastSeen: data.lastSeen
+        }));
+      } else {
+        onlineUsers = [];
+      }
       
-      groupsList.appendChild(groupElement);
+      // Обновление интерфейса
+      this.updateOnlineUsersUI();
+    }, error => {
+      console.error('[Chat] Ошибка загрузки онлайн-пользователей:', error);
     });
   }
   
@@ -193,21 +112,34 @@ class ChatManager {
       const chatElement = document.createElement('div');
       chatElement.className = 'chat-item';
       chatElement.dataset.chatId = chat.id;
-      chatElement.innerHTML = `
-        <div class="chat-avatar" style="background: linear-gradient(45deg, #${Math.floor(Math.random()*16777215).toString(16)}, #${Math.floor(Math.random()*16777215).toString(16)})">
-          ${chat.participants.length > 2 ? '👥' : chat.participants[0].charAt(0).toUpperCase()}
-        </div>
-        <div class="chat-info">
-          <div class="chat-name">${chat.name || 'Чат'}</div>
-          <div class="chat-status">${chat.lastMessage ? chat.lastMessage.text.substring(0, 30) + '...' : 'Нет сообщений'}</div>
-        </div>
-      `;
       
-      chatElement.addEventListener('click', () => {
-        this.openChat(chat.id);
+      // Получаем информацию о собеседнике
+      const userId = firebase.getAuth().currentUser.uid;
+      const otherUserId = chat.id.split('_').find(id => id !== userId);
+      
+      // Загружаем информацию о собеседнике
+      firebase.getDatabase().ref(`users/${otherUserId}`).once('value', (snapshot) => {
+        const userData = snapshot.val();
+        const lastMessage = chat.lastMessage || 'Нет сообщений';
+        
+        chatElement.innerHTML = `
+          <div class="chat-avatar">
+            <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+            </svg>
+          </div>
+          <div class="chat-info">
+            <div class="chat-name">${userData ? userData.name : 'Пользователь'}</div>
+            <div class="chat-status">${lastMessage}</div>
+          </div>
+        `;
+        
+        chatElement.addEventListener('click', () => {
+          navigateTo(`p2p-chat.html?chatId=${chat.id}`);
+        });
+        
+        chatsList.appendChild(chatElement);
       });
-      
-      chatsList.appendChild(chatElement);
     });
   }
   
@@ -235,7 +167,9 @@ class ChatManager {
       userElement.dataset.userId = user.id;
       userElement.innerHTML = `
         <div class="online-avatar">
-          <img src="${user.avatar || 'https://placehold.co/48x48/e6e6e6/808080?text=U'}" alt="${user.name}">
+          <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
           <div class="online-status"></div>
         </div>
         <div class="online-info">
@@ -245,231 +179,116 @@ class ChatManager {
       `;
       
       userElement.addEventListener('click', () => {
-        this.startChatWithUser(user.id);
+        // Создаем ID чата
+        const userId = firebase.getAuth().currentUser.uid;
+        const userIds = [userId, user.id].sort();
+        const chatId = userIds.join('_');
+        
+        // Переходим к чату
+        navigateTo(`p2p-chat.html?chatId=${chatId}`);
       });
       
       onlineUsersList.appendChild(userElement);
     });
   }
   
-  openChat(chatId) {
-    navigateTo(`p2p-chat.html?chatId=${chatId}`);
-  }
-  
-  openGroupChat(groupId) {
-    navigateTo(`p2p-chat.html?groupId=${groupId}`);
-  }
-  
-  async startChatWithUser(userId) {
+  async createChatWithUser(userId) {
     if (!firebase.getAuth().currentUser) {
-      showError('Пожалуйста, войдите в систему');
-      return;
+      return { success: false, message: 'Пожалуйста, войдите в систему' };
     }
     
     try {
       const currentUser = firebase.getAuth().currentUser;
-      const chatId = [currentUser.uid, userId].sort().join('_');
+      
+      // Создаем ID чата (сортируем ID для уникальности)
+      const userIds = [currentUser.uid, userId].sort();
+      const chatId = userIds.join('_');
       
       // Проверка существования чата
-      const chatRef = firebase.getFirestore().collection('chats').doc(chatId);
-      const chatDoc = await chatRef.get();
+      const chatRef = firebase.getDatabase().ref(`chats/${chatId}`);
+      const chatSnapshot = await chatRef.once('value');
+      const chatExists = chatSnapshot.exists();
       
-      if (chatDoc.exists) {
-        // Чат существует, открываем его
-        this.openChat(chatId);
-      } else {
+      if (!chatExists) {
         // Создание нового чата
-        const userDoc = await firebase.getFirestore().collection('users').doc(userId).get();
-        const userData = userDoc.data();
-        
         await chatRef.set({
           participants: [currentUser.uid, userId],
-          name: userData.name,
-          type: 'private',
-          createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-          lastMessage: null
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          lastMessage: null,
+          lastMessageTime: Date.now()
         });
         
-        // Открытие чата
-        this.openChat(chatId);
-      }
-    } catch (error) {
-      console.error('[Chat] Ошибка начала чата:', error);
-      showError('Не удалось начать чат. Пожалуйста, попробуйте еще раз.');
-    }
-  }
-  
-  async createGroup(groupData) {
-    if (!firebase.getAuth().currentUser) {
-      return { success: false, message: 'Пожалуйста, войдите в систему' };
-    }
-    
-    try {
-      const currentUser = firebase.getAuth().currentUser;
-      
-      // Создание документа группы
-      const groupRef = await firebase.getFirestore().collection('groups').add({
-        name: groupData.name,
-        description: groupData.description || '',
-        creator: currentUser.uid,
-        members: [currentUser.uid, ...groupData.members],
-        avatar: groupData.avatar || null,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        settings: {
-          allowNonMembersToMessage: true,
-          requireApproval: false
-        }
-      });
-      
-      // Создание чата для группы
-      await firebase.getFirestore().collection('chats').doc(groupRef.id).set({
-        participants: [currentUser.uid, ...groupData.members],
-        name: groupData.name,
-        type: 'group',
-        groupId: groupRef.id,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        lastMessage: null
-      });
-      
-      console.log('[Chat] Группа создана успешно:', groupRef.id);
-      return { success: true, groupId: groupRef.id };
-    } catch (error) {
-      console.error('[Chat] Ошибка создания группы:', error);
-      return { success: false, message: 'Не удалось создать группу. Пожалуйста, попробуйте еще раз.' };
-    }
-  }
-  
-  async sendMessage(chatId, messageData) {
-    if (!firebase.getAuth().currentUser) {
-      return { success: false, message: 'Пожалуйста, войдите в систему' };
-    }
-    
-    try {
-      const currentUser = firebase.getAuth().currentUser;
-      
-      // Создание документа сообщения
-      const messageRef = await firebase.getFirestore().collection('messages').add({
-        chatId: chatId,
-        senderId: currentUser.uid,
-        text: messageData.text,
-        media: messageData.media || null,
-        timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-        readBy: [currentUser.uid],
-        status: 'sent'
-      });
-      
-      // Обновление последнего сообщения в чате
-      await firebase.getFirestore().collection('chats').doc(chatId).update({
-        lastMessage: {
-          id: messageRef.id,
-          text: messageData.text.substring(0, 50) + (messageData.text.length > 50 ? '...' : ''),
-          senderId: currentUser.uid,
-          timestamp: firebase.firestore.FieldValue.serverTimestamp()
-        },
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-      });
-      
-      // Если это группа, обновляем и группу
-      if (chatId.startsWith('group_')) {
-        await firebase.getFirestore().collection('groups').doc(chatId).update({
-          lastMessage: {
-            id: messageRef.id,
-            text: messageData.text.substring(0, 50) + (messageData.text.length > 50 ? '...' : ''),
-            senderId: currentUser.uid,
-            timestamp: firebase.firestore.FieldValue.serverTimestamp()
-          },
-          updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        // Добавляем чат в список чатов для обоих пользователей
+        await firebase.getDatabase().ref(`users/${currentUser.uid}/chats/${chatId}`).set({
+          lastMessage: 'Чат создан',
+          lastMessageTime: Date.now()
+        });
+        
+        await firebase.getDatabase().ref(`users/${userId}/chats/${chatId}`).set({
+          lastMessage: 'Чат создан',
+          lastMessageTime: Date.now()
         });
       }
       
-      console.log('[Chat] Сообщение отправлено успешно:', messageRef.id);
-      return { success: true, messageId: messageRef.id };
+      console.log('[Chat] Чат создан/найден успешно:', chatId);
+      return { success: true, chatId: chatId };
+    } catch (error) {
+      console.error('[Chat] Ошибка создания чата:', error);
+      return { success: false, message: 'Не удалось создать чат. Пожалуйста, попробуйте еще раз.' };
+    }
+  }
+  
+  async sendMessage(chatId, messageText) {
+    if (!firebase.getAuth().currentUser) {
+      return { success: false, message: 'Пожалуйста, войдите в систему' };
+    }
+    
+    try {
+      const currentUser = firebase.getAuth().currentUser;
+      const timestamp = Date.now();
+      
+      // Создание сообщения
+      const messageRef = firebase.getDatabase().ref(`messages/${chatId}`).push();
+      await messageRef.set({
+        text: messageText,
+        sender: currentUser.uid,
+        timestamp: new Date().toISOString(),
+        read: false
+      });
+      
+      // Обновление информации о чате
+      await firebase.getDatabase().ref(`chats/${chatId}`).update({
+        lastMessage: messageText,
+        lastMessageTime: timestamp
+      });
+      
+      // Обновление информации в списке чатов для обоих пользователей
+      const userIds = chatId.split('_');
+      for (const userId of userIds) {
+        await firebase.getDatabase().ref(`users/${userId}/chats/${chatId}`).update({
+          lastMessage: messageText,
+          lastMessageTime: timestamp
+        });
+      }
+      
+      console.log('[Chat] Сообщение отправлено успешно:', messageRef.key);
+      return { success: true, messageId: messageRef.key };
     } catch (error) {
       console.error('[Chat] Ошибка отправки сообщения:', error);
       return { success: false, message: 'Не удалось отправить сообщение. Пожалуйста, попробуйте еще раз.' };
     }
   }
   
-  async loadMessages(chatId, limit = 50) {
-    try {
-      const messagesSnapshot = await firebase.getFirestore().collection('messages')
-        .where('chatId', '==', chatId)
-        .orderBy('timestamp', 'desc')
-        .limit(limit)
-        .get();
-      
-      const messages = messagesSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-          timestamp: data.timestamp ? data.timestamp.toDate() : new Date()
-        };
-      }).reverse();
-      
-      return messages;
-    } catch (error) {
-      console.error('[Chat] Ошибка загрузки сообщений:', error);
-      throw new Error('Не удалось загрузить сообщения');
-    }
-  }
-  
-  async markMessagesAsRead(chatId, messageIds) {
-    if (!firebase.getAuth().currentUser || !messageIds.length) return;
-    
-    const batch = firebase.getFirestore().batch();
-    const userId = firebase.getAuth().currentUser.uid;
-    
-    messageIds.forEach(messageId => {
-      const messageRef = firebase.getFirestore().collection('messages').doc(messageId);
-      batch.update(messageRef, {
-        readBy: firebase.firestore.FieldValue.arrayUnion(userId)
-      });
-    });
-    
-    await batch.commit();
-  }
-  
-  async searchUsers(query) {
-    if (!query || query.length < 2) return [];
-    
-    try {
-      const usersSnapshot = await firebase.getFirestore().collection('users')
-        .where('name', '>=', query)
-        .where('name', '<=', query + '\uf8ff')
-        .limit(20)
-        .get();
-      
-      return usersSnapshot.docs.map(doc => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          name: data.name,
-          email: data.email,
-          avatar: data.avatar,
-          status: data.status
-        };
-      });
-    } catch (error) {
-      console.error('[Chat] Ошибка поиска пользователей:', error);
-      return [];
-    }
-  }
-  
   cleanup() {
     // Удаление слушателей
     Object.values(this.chatListeners).forEach(unsubscribe => unsubscribe());
-    Object.values(this.groupListeners).forEach(unsubscribe => unsubscribe());
     
     if (this.onlineUsersListener) {
       this.onlineUsersListener();
     }
     
     this.chatListeners = {};
-    this.groupListeners = {};
     this.onlineUsersListener = null;
   }
 }

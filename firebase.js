@@ -3,7 +3,7 @@
 
 // Глобальные переменные для Firebase
 let firebaseInitialized = false;
-let auth, firestore, storage;
+let auth, database;
 
 // Конфигурация Firebase
 const firebaseConfig = {
@@ -29,8 +29,7 @@ function initializeFirebase() {
       if (firebase.apps.length > 0) {
         console.log('[Firebase] Firebase уже инициализирована');
         auth = firebase.auth();
-        firestore = firebase.firestore();
-        storage = firebase.storage();
+        database = firebase.database();
         firebaseInitialized = true;
         resolve();
         return;
@@ -41,8 +40,7 @@ function initializeFirebase() {
       
       // Получение сервисов
       auth = firebase.auth();
-      firestore = firebase.firestore();
-      storage = firebase.storage();
+      database = firebase.database();
       
       firebaseInitialized = true;
       console.log('[Firebase] Инициализация успешна');
@@ -62,7 +60,7 @@ function initializeFirebase() {
 
 // Проверка готовности Firebase
 function isFirebaseReady() {
-  return firebaseInitialized && auth && firestore && storage;
+  return firebaseInitialized && auth && database;
 }
 
 // Экспорт функций
@@ -70,7 +68,6 @@ window.firebase = {
   initialize: initializeFirebase,
   isReady: isFirebaseReady,
   getAuth: () => auth,
-  getFirestore: () => firestore,
-  getStorage: () => storage,
+  getDatabase: () => database,
   getConfig: () => firebaseConfig
 };

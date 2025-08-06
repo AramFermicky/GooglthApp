@@ -122,64 +122,6 @@ function throttle(func, limit) {
   };
 }
 
-// Загрузка изображения в Firebase Storage
-async function uploadImage(file, path) {
-  if (!file) {
-    throw new Error('Файл не указан');
-  }
-  
-  const storageRef = firebase.getStorage().ref();
-  const fileRef = storageRef.child(`${path}/${Date.now()}_${file.name}`);
-  
-  const uploadTask = fileRef.put(file);
-  
-  return new Promise((resolve, reject) => {
-    uploadTask.on('state_changed', 
-      (snapshot) => {
-        // Прогресс загрузки
-        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-        console.log(`Загрузка: ${progress}%`);
-      },
-      (error) => {
-        console.error('[Storage] Ошибка загрузки:', error);
-        reject(error);
-      },
-      async () => {
-        // Завершение загрузки
-        const downloadURL = await uploadTask.snapshot.ref.getDownloadURL();
-        console.log('[Storage] Файл доступен по:', downloadURL);
-        resolve(downloadURL);
-      }
-    );
-  });
-}
-
-// Загрузка аватара пользователя
-async function uploadUserAvatar(file) {
-  try {
-    const user = firebase.getAuth().currentUser;
-    if (!user) throw new Error('Пользователь не авторизован');
-    
-    const downloadURL = await uploadImage(file, `avatars/${user.uid}`);
-    
-    // Обновление профиля пользователя
-    await user.updateProfile({
-      photoURL: downloadURL
-    });
-    
-    // Обновление данных в Firestore
-    await firebase.getFirestore().collection('users').doc(user.uid).update({
-      avatar: downloadURL,
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    
-    return downloadURL;
-  } catch (error) {
-    console.error('[Auth] Ошибка загрузки аватара:', error);
-    throw error;
-  }
-}
-
 // Обработчик регистрации
 async function registerUser(name, email, password) {
   try {
@@ -203,21 +145,20 @@ async function registerUser(name, email, password) {
       displayName: name
     });
     
-    // Создание документа пользователя в Firestore
-    await firebase.getFirestore().collection('users').doc(user.uid).set({
+    // Создание документа пользователя в Realtime Database
+    const userData = {
       name: name,
       email: email,
-      avatar: null,
-      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdAt: new Date().toISOString(),
+      status: 'online',
+      lastSeen: new Date().toISOString(),
       settings: {
         theme: 'light',
-        notifications: true,
-        language: 'ru'
-      },
-      status: 'online',
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-    });
+        chatBackground: 'bg1'
+      }
+    };
+    
+    await firebase.getDatabase().ref('users/' + user.uid).set(userData);
     
     console.log('[Auth] Регистрация успешна:', user.uid);
     return { success: true, user: user };
@@ -252,9 +193,9 @@ async function loginUser(email, password) {
     console.log('[Auth] Вход успешен:', user.uid);
     
     // Обновление статуса пользователя
-    await firebase.getFirestore().collection('users').doc(user.uid).update({
+    await firebase.getDatabase().ref('users/' + user.uid).update({
       status: 'online',
-      lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+      lastSeen: new Date().toISOString()
     });
     
     return { success: true, user: user };
@@ -285,33 +226,34 @@ async function loginWithGoogle() {
     
     console.log('[Auth] Вход через Google успешен:', user.uid);
     
-    // Проверка существования документа пользователя
-    const userDoc = await firebase.getFirestore().collection('users').doc(user.uid).get();
+    // Проверка существования пользователя в Realtime Database
+    const userSnapshot = await firebase.getDatabase().ref('users/' + user.uid).once('value');
+    const userExists = userSnapshot.exists();
     
-    if (!userDoc.exists) {
+    if (!userExists) {
       // Создание документа пользователя, если его нет
-      await firebase.getFirestore().collection('users').doc(user.uid).set({
+      const userData = {
         name: user.displayName,
         email: user.email,
         avatar: user.photoURL,
-        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-        updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        createdAt: new Date().toISOString(),
+        status: 'online',
+        lastSeen: new Date().toISOString(),
         settings: {
           theme: 'light',
-          notifications: true,
-          language: 'ru'
-        },
-        status: 'online',
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
-      });
+          chatBackground: 'bg1'
+        }
+      };
+      
+      await firebase.getDatabase().ref('users/' + user.uid).set(userData);
     } else {
       // Обновление существующего документа
-      await firebase.getFirestore().collection('users').doc(user.uid).update({
+      await firebase.getDatabase().ref('users/' + user.uid).update({
         name: user.displayName,
         email: user.email,
         avatar: user.photoURL,
         status: 'online',
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        lastSeen: new Date().toISOString()
       });
     }
     
@@ -337,9 +279,9 @@ async function logoutUser() {
     
     if (user) {
       // Обновление статуса пользователя
-      await firebase.getFirestore().collection('users').doc(user.uid).update({
+      await firebase.getDatabase().ref('users/' + user.uid).update({
         status: 'offline',
-        lastSeen: firebase.firestore.FieldValue.serverTimestamp()
+        lastSeen: new Date().toISOString()
       });
     }
     
@@ -393,94 +335,6 @@ async function checkEmailExists(email) {
   }
 }
 
-// Обновление профиля пользователя
-async function updateProfile(updates) {
-  try {
-    const user = firebase.getAuth().currentUser;
-    if (!user) {
-      throw new Error('Пользователь не авторизован');
-    }
-    
-    const updatePromises = [];
-    
-    // Обновление профиля в Firebase Auth
-    if (updates.name && updates.name !== user.displayName) {
-      updatePromises.push(user.updateProfile({ displayName: updates.name }));
-    }
-    
-    if (updates.email && updates.email !== user.email) {
-      updatePromises.push(user.updateEmail(updates.email));
-    }
-    
-    if (updates.photoURL && updates.photoURL !== user.photoURL) {
-      updatePromises.push(user.updateProfile({ photoURL: updates.photoURL }));
-    }
-    
-    // Обновление данных в Firestore
-    const firestoreUpdates = {};
-    if (updates.name) firestoreUpdates.name = updates.name;
-    if (updates.email) firestoreUpdates.email = updates.email;
-    if (updates.avatar) firestoreUpdates.avatar = updates.avatar;
-    if (updates.settings) firestoreUpdates.settings = updates.settings;
-    
-    if (Object.keys(firestoreUpdates).length > 0) {
-      firestoreUpdates.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
-      updatePromises.push(
-        firebase.getFirestore().collection('users').doc(user.uid).update(firestoreUpdates)
-      );
-    }
-    
-    await Promise.all(updatePromises);
-    
-    console.log('[Auth] Профиль обновлен успешно');
-    return { success: true };
-  } catch (error) {
-    console.error('[Auth] Ошибка обновления профиля:', error);
-    
-    let message = 'Ошибка обновления профиля. Пожалуйста, попробуйте еще раз.';
-    if (error.code === 'auth/email-already-in-use') {
-      message = 'Этот email уже используется другим аккаунтом.';
-    } else if (error.code === 'auth/requires-recent-login') {
-      message = 'Для изменения этой информации требуется повторный вход в систему.';
-    }
-    
-    return { success: false, message: message };
-  }
-}
-
-// Обновление пароля пользователя
-async function updatePassword(newPassword) {
-  try {
-    const user = firebase.getAuth().currentUser;
-    if (!user) {
-      throw new Error('Пользователь не авторизован');
-    }
-    
-    // Проверка сложности пароля
-    const strength = checkPasswordStrength(newPassword);
-    if (strength < 2) {
-      throw new Error('Пароль слишком слабый. Используйте минимум 8 символов, включая заглавные буквы и цифры.');
-    }
-    
-    // Обновление пароля
-    await user.updatePassword(newPassword);
-    
-    console.log('[Auth] Пароль обновлен успешно');
-    return { success: true };
-  } catch (error) {
-    console.error('[Auth] Ошибка обновления пароля:', error);
-    
-    let message = 'Ошибка обновления пароля. Пожалуйста, попробуйте еще раз.';
-    if (error.code === 'auth/weak-password') {
-      message = 'Пароль слишком слабый. Используйте минимум 6 символов.';
-    } else if (error.code === 'auth/requires-recent-login') {
-      message = 'Для изменения пароля требуется повторный вход в систему.';
-    }
-    
-    return { success: false, message: message };
-  }
-}
-
 // Экспорт функций
 window.app = {
   navigateTo,
@@ -491,14 +345,10 @@ window.app = {
   formatDate,
   debounce,
   throttle,
-  uploadImage,
-  uploadUserAvatar,
   registerUser,
   loginUser,
   loginWithGoogle,
   logoutUser,
   sendPasswordResetEmail,
-  checkEmailExists,
-  updateProfile,
-  updatePassword
+  checkEmailExists
 };

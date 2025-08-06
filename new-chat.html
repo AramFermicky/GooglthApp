@@ -2,96 +2,245 @@
 <html lang="ru">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Новый чат</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body class="slide-in">
-  <div class="mobile-frame">
-    <div class="new-chat-container">
-      <header class="new-chat-header">
-        <button class="back-btn" onclick="window.history.back()">
+  <div class="mobile-frame android">
+    <div class="app-container">
+      <header class="app-header">
+        <button class="chat-back-btn" id="back-btn">
           <svg viewBox="0 0 24 24" width="24" height="24">
             <path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/>
           </svg>
         </button>
-        <h1>Новый чат</h1>
+        <div class="app-title">Новый чат</div>
       </header>
       
-      <div class="search-box">
-        <input type="text" id="chat-search" placeholder="Поиск по имени или email...">
+      <div class="search-container" style="padding: 10px 16px;">
+        <div class="search-box">
+          <input type="text" id="search-input" placeholder="Поиск контактов...">
+          <div class="search-icon">
+            <svg viewBox="0 0 24 24" width="20" height="20">
+              <path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/>
+            </svg>
+          </div>
+        </div>
       </div>
       
-      <div class="chats-list" id="chats-list">
-        <div class="empty-state">
-          <div class="empty-icon">🔍</div>
-          <h3>Найдите своих друзей</h3>
-          <p>Введите имя или email для поиска пользователей GooglthApp</p>
+      <div class="contacts-section">
+        <h2>Контакты</h2>
+        <div id="contacts-list" class="scrollable-list">
+          <!-- Контакты будут загружены через JavaScript -->
         </div>
       </div>
     </div>
+    
+    <div class="android-navigation">
+      <div class="navigation-button home"></div>
+      <div class="navigation-button recent"></div>
+      <div class="navigation-button back"></div>
+    </div>
   </div>
   
+  <!-- Firebase через CDN -->
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+  
+  <!-- Наши скрипты -->
+  <script src="firebase.js"></script>
+  <script src="coreApp.js"></script>
+  <script src="scripts.js"></script>
+  
   <script>
+    // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', () => {
-      const searchInput = document.getElementById('chat-search');
-      const chatsList = document.getElementById('chats-list');
+      // Инициализация Firebase
+      firebase.initialize()
+        .then(() => {
+          // Проверка аутентификации
+          firebase.getAuth().onAuthStateChanged(user => {
+            if (!user) {
+              window.location.href = 'old_user.html';
+              return;
+            }
+            
+            // Инициализация поиска контактов
+            initContactSearch();
+          });
+        })
+        .catch(error => {
+          console.error('Ошибка инициализации Firebase:', error);
+          window.showError('Не удалось подключиться к Firebase. Проверьте интернет-соединение.');
+        });
+    });
+    
+    function initContactSearch() {
+      const searchInput = document.getElementById('search-input');
+      const contactsList = document.getElementById('contacts-list');
+      const backBtn = document.getElementById('back-btn');
       
-      // Поиск пользователей для нового чата
-      searchInput.addEventListener('input', () => {
-        const query = searchInput.value;
+      // Обработчик кнопки "назад"
+      backBtn.addEventListener('click', () => {
+        window.navigateTo('app.html');
+      });
+      
+      // Обработчик поиска
+      searchInput.addEventListener('input', window.app.debounce((e) => {
+        const query = e.target.value.trim();
+        if (query.length >= 2) {
+          searchContacts(query);
+        } else {
+          loadAllContacts();
+        }
+      }, 300));
+      
+      // Загружаем все контакты
+      loadAllContacts();
+    }
+    
+    function loadAllContacts() {
+      const contactsList = document.getElementById('contacts-list');
+      contactsList.innerHTML = '<div class="loading">Загрузка контактов...</div>';
+      
+      const userId = firebase.getAuth().currentUser.uid;
+      
+      // Загружаем всех пользователей, кроме себя
+      firebase.getDatabase().ref('users').once('value', (snapshot) => {
+        const usersData = snapshot.val();
+        contactsList.innerHTML = '';
         
-        if (query.length < 2) {
-          chatsList.innerHTML = `
+        if (!usersData) {
+          contactsList.innerHTML = `
             <div class="empty-state">
-              <div class="empty-icon">🔍</div>
-              <h3>Найдите своих друзей</h3>
-              <p>Введите имя или email для поиска пользователей GooglthApp</p>
+              <div class="empty-icon">👥</div>
+              <p>Нет доступных контактов</p>
             </div>
           `;
           return;
         }
         
-        const results = AuthSystem.searchUsers(query);
+        // Преобразуем объект в массив и фильтруем
+        const users = Object.entries(usersData)
+          .map(([id, user]) => ({ id, ...user }))
+          .filter(user => user.id !== userId)
+          .sort((a, b) => a.name.localeCompare(b.name));
         
-        if (results.length > 0) {
-          chatsList.innerHTML = results.map(user => `
-            <div class="contact-item" onclick="startChat('${user.id}', '${user.name}')">
-              <div class="contact-avatar">${user.name.charAt(0)}</div>
-              <div class="contact-info">
-                <div class="contact-name">${user.name}</div>
-                <div class="contact-email">${user.email}</div>
-              </div>
-              <div class="chat-status ${user.online ? 'online' : ''}"></div>
-            </div>
-          `).join('');
-        } else {
-          chatsList.innerHTML = `
-            <div class="no-results">
-              Пользователи не найдены
+        if (users.length === 0) {
+          contactsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">👥</div>
+              <p>Нет доступных контактов</p>
             </div>
           `;
+          return;
         }
-      });
-      
-      // Начало чата
-      window.startChat = (userId, userName) => {
-        // Сохранение выбранного пользователя в сессии
-        sessionStorage.setItem('p2p_target_user', JSON.stringify({ id: userId, name: userName }));
         
-        // Попытка установить P2P-соединение
-        if (window.p2pManager) {
-          window.p2pManager.createOffer(userId).then(result => {
-            if (!result.success) {
-              console.error('Не удалось создать предложение:', result.error);
-            }
+        // Отображаем пользователей
+        users.forEach(user => {
+          const userElement = document.createElement('div');
+          userElement.className = 'group-item';
+          userElement.dataset.userId = user.id;
+          
+          userElement.innerHTML = `
+            <div class="group-avatar">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <div class="group-info">
+              <div class="group-name">${user.name}</div>
+              <div class="group-members">${user.status === 'online' ? 'Онлайн' : 'Не в сети'}</div>
+            </div>
+          `;
+          
+          userElement.addEventListener('click', () => {
+            // Создаем ID чата
+            const userIds = [firebase.getAuth().currentUser.uid, user.id].sort();
+            const chatId = userIds.join('_');
+            
+            // Переходим к чату
+            window.navigateTo(`p2p-chat.html?chatId=${chatId}`);
           });
+          
+          contactsList.appendChild(userElement);
+        });
+      });
+    }
+    
+    function searchContacts(query) {
+      const contactsList = document.getElementById('contacts-list');
+      contactsList.innerHTML = '<div class="loading">Поиск...</div>';
+      
+      const userId = firebase.getAuth().currentUser.uid;
+      
+      // Загружаем всех пользователей и фильтруем на клиенте
+      firebase.getDatabase().ref('users').once('value', (snapshot) => {
+        const usersData = snapshot.val();
+        contactsList.innerHTML = '';
+        
+        if (!usersData) {
+          contactsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">👥</div>
+              <p>Нет контактов, соответствующих запросу</p>
+            </div>
+          `;
+          return;
         }
         
-        navigateTo('p2p-chat.html');
-      };
-    });
+        // Преобразуем объект в массив и фильтруем
+        const users = Object.entries(usersData)
+          .map(([id, user]) => ({ id, ...user }))
+          .filter(user => 
+            user.id !== userId && 
+            user.name.toLowerCase().includes(query.toLowerCase())
+          )
+          .sort((a, b) => a.name.localeCompare(b.name));
+        
+        if (users.length === 0) {
+          contactsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <p>Нет контактов, соответствующих запросу</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Отображаем пользователей
+        users.forEach(user => {
+          const userElement = document.createElement('div');
+          userElement.className = 'group-item';
+          userElement.dataset.userId = user.id;
+          
+          userElement.innerHTML = `
+            <div class="group-avatar">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+            </div>
+            <div class="group-info">
+              <div class="group-name">${user.name}</div>
+              <div class="group-members">${user.status === 'online' ? 'Онлайн' : 'Не в сети'}</div>
+            </div>
+          `;
+          
+          userElement.addEventListener('click', () => {
+            // Создаем ID чата
+            const userIds = [firebase.getAuth().currentUser.uid, user.id].sort();
+            const chatId = userIds.join('_');
+            
+            // Переходим к чату
+            window.navigateTo(`p2p-chat.html?chatId=${chatId}`);
+          });
+          
+          contactsList.appendChild(userElement);
+        });
+      });
+    }
   </script>
-  <script src="script.js"></script>
 </body>
 </html>

@@ -53,9 +53,9 @@
       </div>
       
       <div class="groups-section">
-        <h2>Ваши группы</h2>
-        <div id="groups-list" class="scrollable-list">
-          <!-- Группы будут загружены через JavaScript -->
+        <h2>Недавние чаты</h2>
+        <div id="chats-list" class="scrollable-list">
+          <!-- Чаты будут загружены через JavaScript -->
         </div>
       </div>
       
@@ -151,8 +151,7 @@
   <!-- Firebase через CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   
   <!-- Наши скрипты -->
   <script src="firebase.js"></script>
@@ -160,7 +159,7 @@
   <script src="scripts.js"></script>
   
   <script>
-    // Инициализация приложения
+    // Инициализация при загрузке
     document.addEventListener('DOMContentLoaded', () => {
       // Инициализация Firebase
       firebase.initialize()
@@ -186,7 +185,7 @@
             }
             
             // Инициализация менеджера чатов
-            chatManager.init().init();
+            initChatManager();
             
             // Обработчики для главной страницы
             document.getElementById('create-group-btn').addEventListener('click', () => {
@@ -254,13 +253,13 @@
                 const background = this.className.split(' ')[1];
                 document.body.setAttribute('data-chat-background', background);
                 
-                // Сохранение в Firestore
+                // Сохранение в Realtime Database
                 if (firebase.getAuth().currentUser) {
-                  firebase.getFirestore().collection('users').doc(firebase.getAuth().currentUser.uid).update({
-                    'settings.chatBackground': background
-                  }).catch(error => {
-                    console.error('Ошибка сохранения фона:', error);
-                  });
+                  firebase.getDatabase().ref('users/' + firebase.getAuth().currentUser.uid + '/settings/chatBackground')
+                    .set(background)
+                    .catch(error => {
+                      console.error('Ошибка сохранения фона:', error);
+                    });
                 }
               });
             });
@@ -277,13 +276,13 @@
                 const theme = this.className.split(' ')[1].split('-')[1];
                 document.documentElement.setAttribute('data-theme', theme);
                 
-                // Сохранение в Firestore
+                // Сохранение в Realtime Database
                 if (firebase.getAuth().currentUser) {
-                  firebase.getFirestore().collection('users').doc(firebase.getAuth().currentUser.uid).update({
-                    'settings.theme': theme
-                  }).catch(error => {
-                    console.error('Ошибка сохранения темы:', error);
-                  });
+                  firebase.getDatabase().ref('users/' + firebase.getAuth().currentUser.uid + '/settings/theme')
+                    .set(theme)
+                    .catch(error => {
+                      console.error('Ошибка сохранения темы:', error);
+                    });
                 }
               });
             });
@@ -294,6 +293,130 @@
           window.showError('Не удалось подключиться к Firebase. Проверьте интернет-соединение.');
         });
     });
+    
+    function initChatManager() {
+      const userId = firebase.getAuth().currentUser.uid;
+      
+      // Загрузка недавних чатов
+      loadRecentChats(userId);
+      
+      // Загрузка онлайн-пользователей
+      loadOnlineUsers();
+    }
+    
+    function loadRecentChats(userId) {
+      const chatsList = document.getElementById('chats-list');
+      chatsList.innerHTML = '';
+      
+      // Загружаем чаты пользователя
+      firebase.getDatabase().ref('users/' + userId + '/chats').on('value', (snapshot) => {
+        const chatsData = snapshot.val();
+        
+        if (!chatsData || Object.keys(chatsData).length === 0) {
+          chatsList.innerHTML = `
+            <div class="empty-state">
+              <div class="empty-icon">💬</div>
+              <p>У вас пока нет чатов</p>
+              <button class="primary-btn" onclick="window.navigateTo('new-chat.html')">Новый чат</button>
+            </div>
+          `;
+          return;
+        }
+        
+        // Преобразуем объект в массив и сортируем по времени
+        const chats = Object.entries(chatsData)
+          .map(([chatId, chat]) => ({ id: chatId, ...chat }))
+          .sort((a, b) => b.lastMessageTime - a.lastMessageTime);
+        
+        // Отображаем чаты
+        chats.forEach(chat => {
+          const chatElement = document.createElement('div');
+          chatElement.className = 'chat-item';
+          chatElement.dataset.chatId = chat.id;
+          
+          // Получаем информацию о собеседнике
+          const otherUserId = chat.id.split('_').find(id => id !== firebase.getAuth().currentUser.uid);
+          
+          // Загружаем информацию о собеседнике
+          firebase.getDatabase().ref('users/' + otherUserId).once('value', (snapshot) => {
+            const userData = snapshot.val();
+            const lastMessage = chat.lastMessage || 'Нет сообщений';
+            
+            chatElement.innerHTML = `
+              <div class="chat-avatar">
+                <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+                  <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                </svg>
+              </div>
+              <div class="chat-info">
+                <div class="chat-name">${userData ? userData.name : 'Пользователь'}</div>
+                <div class="chat-status">${lastMessage}</div>
+              </div>
+            `;
+            
+            chatElement.addEventListener('click', () => {
+              window.navigateTo(`p2p-chat.html?chatId=${chat.id}`);
+            });
+            
+            chatsList.appendChild(chatElement);
+          });
+        });
+      });
+    }
+    
+    function loadOnlineUsers() {
+      const onlineUsersList = document.getElementById('online-users');
+      onlineUsersList.innerHTML = '';
+      
+      // Загружаем онлайн-пользователей
+      firebase.getDatabase().ref('users').orderByChild('status').equalTo('online').on('value', (snapshot) => {
+        const usersData = snapshot.val();
+        
+        if (!usersData || Object.keys(usersData).length === 0) {
+          onlineUsersList.innerHTML = `
+            <div class="no-online-users">
+              <div class="empty-icon">👥</div>
+              <p>Нет пользователей онлайн</p>
+            </div>
+          `;
+          return;
+        }
+        
+        // Отображаем онлайн-пользователей
+        Object.entries(usersData).forEach(([userId, userData]) => {
+          // Не показываем текущего пользователя
+          if (userId === firebase.getAuth().currentUser.uid) return;
+          
+          const userElement = document.createElement('div');
+          userElement.className = 'online-user';
+          userElement.dataset.userId = userId;
+          
+          userElement.innerHTML = `
+            <div class="online-avatar">
+              <svg viewBox="0 0 24 24" width="48" height="48" fill="#4285f4">
+                <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+              </svg>
+              <div class="online-status"></div>
+            </div>
+            <div class="online-info">
+              <div class="online-name">${userData.name}</div>
+              <div class="online-status-text">Онлайн</div>
+            </div>
+          `;
+          
+          userElement.addEventListener('click', () => {
+            // Создаем ID чата
+            const userIds = [firebase.getAuth().currentUser.uid, userId].sort();
+            const chatId = userIds.join('_');
+            
+            // Переходим к чату
+            window.navigateTo(`p2p-chat.html?chatId=${chatId}`);
+          });
+          
+          onlineUsersList.appendChild(userElement);
+        });
+      });
+    }
   </script>
 </body>
 </html>

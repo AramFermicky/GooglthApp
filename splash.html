@@ -4,7 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>GooglethApp</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth-styles.css">
+  <style>
+    .splash-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      position: relative;
+      z-index: 2;
+    }
+    
+    .google-logo {
+      font-size: 3.5rem;
+      font-weight: 800;
+      display: flex;
+      gap: 1px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      letter-spacing: -0.5px;
+      margin-bottom: 30px;
+      z-index: 2;
+    }
+    
+    .loading-animation {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+      z-index: 2;
+    }
+    
+    .loading-dot {
+      width: 10px;
+      height: 10px;
+      background: rgba(255, 255, 255, 0.6);
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .loading-dot:nth-child(1) {
+      animation-delay: 0s;
+    }
+    
+    .loading-dot:nth-child(2) {
+      animation-delay: 0.3s;
+    }
+    
+    .loading-dot:nth-child(3) {
+      animation-delay: 0.6s;
+    }
+    
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.6; }
+      50% { transform: scale(1.2); opacity: 1; }
+      100% { transform: scale(0.8); opacity: 0.6; }
+    }
+    
+    .loading-text {
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 0.9rem;
+      margin-top: 15px;
+      letter-spacing: 0.5px;
+    }
+  </style>
 </head>
 <body class="splash-screen">
   <div class="mobile-frame android">
@@ -26,64 +90,32 @@
         <div class="loading-dot"></div>
         <div class="loading-dot"></div>
       </div>
+      <div class="loading-text">Загрузка приложения...</div>
     </div>
   </div>
   
-  <!-- Firebase через CDN -->
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
-  
-  <!-- Наши скрипты -->
-  <script src="firebase.js"></script>
-  <script src="coreApp.js"></script>
-  <script src="scripts.js"></script>
-  
   <script>
-    // Инициализация приложения
+    // Имитация загрузки приложения
     document.addEventListener('DOMContentLoaded', () => {
-      // Инициализация Firebase
-      firebase.initialize()
-        .then(() => {
-          // Проверка аутентификации
-          firebase.getAuth().onAuthStateChanged(user => {
-            setTimeout(() => {
-              if (user) {
-                window.location.href = 'app.html';
-              } else {
-                window.location.href = 'old_user.html';
-              }
-            }, 1500);
-          });
-        })
-        .catch(error => {
-          console.error('Ошибка инициализации Firebase:', error);
-          document.body.innerHTML = `
-            <div class="mobile-frame android">
-              <div class="splash-container">
-                <div class="google-logo">
-                  <span class="G">G</span>
-                  <span class="o">o</span>
-                  <span class="o">o</span>
-                  <span class="g">g</span>
-                  <span class="l">l</span>
-                  <span class="t">t</span>
-                  <span class="h">h</span>
-                  <span class="A">A</span>
-                  <span class="p">p</span>
-                  <span class="p">p</span>
-                </div>
-                <div style="color: #ea4335; text-align: center; margin-top: 20px;">
-                  <p>Ошибка инициализации Firebase</p>
-                  <button onclick="window.location.reload()" style="margin-top: 10px; padding: 8px 16px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">
-                    Попробовать снова
-                  </button>
-                </div>
-              </div>
-            </div>
-          `;
-        });
+      // Устанавливаем таймер для имитации загрузки (2.5 секунды)
+      setTimeout(() => {
+        // Перенаправляем на страницу регистрации
+        window.location.href = 'new_user.html';
+      }, 2500);
+      
+      // Анимация для текста загрузки
+      const loadingText = document.querySelector('.loading-text');
+      let dots = 0;
+      
+      const dotInterval = setInterval(() => {
+        dots = (dots + 1) % 4;
+        loadingText.textContent = 'Загрузка приложения' + '.'.repeat(dots);
+      }, 500);
+      
+      // Останавливаем анимацию точек после перенаправления
+      setTimeout(() => {
+        clearInterval(dotInterval);
+      }, 2500);
     });
   </script>
 </body>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Создать аккаунт</title>
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="auth-styles.css">
 </head>
 <body class="slide-in">
   <div class="mobile-frame android">
@@ -90,7 +90,7 @@
   <!-- Firebase через CDN -->
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
   
   <!-- Наши скрипты -->
   <script src="firebase.js"></script>
@@ -132,30 +132,98 @@
               return;
             }
             
-            // Регистрация пользователя
-            const result = await window.app.registerUser(name, email, password);
-            
-            if (result.success) {
+            try {
+              // Регистрация пользователя
+              const userCredential = await firebase.getAuth().createUserWithEmailAndPassword(email, password);
+              const user = userCredential.user;
+              
+              // Обновление профиля с именем
+              await user.updateProfile({
+                displayName: name
+              });
+              
+              // Сохранение данных пользователя в Realtime Database
+              const userData = {
+                name: name,
+                email: email,
+                createdAt: new Date().toISOString(),
+                status: 'online',
+                lastSeen: new Date().toISOString(),
+                settings: {
+                  theme: 'light',
+                  chatBackground: 'bg1'
+                }
+              };
+              
+              await firebase.getDatabase().ref('users/' + user.uid).set(userData);
+              
               window.showSuccess('Регистрация успешна! Добро пожаловать в GooglethApp');
               setTimeout(() => {
                 window.navigateTo('app.html');
               }, 1500);
-            } else {
-              window.showError(result.message);
+            } catch (error) {
+              let message = 'Ошибка регистрации. Пожалуйста, попробуйте еще раз.';
+              if (error.code === 'auth/email-already-in-use') {
+                message = 'Этот email уже используется. Попробуйте войти.';
+              } else if (error.code === 'auth/weak-password') {
+                message = 'Пароль слишком слабый. Используйте минимум 6 символов.';
+              } else if (error.code === 'auth/invalid-email') {
+                message = 'Неверный формат email.';
+              }
+              
+              window.showError(message);
             }
           });
           
           // Обработчик входа через Google
           document.getElementById('google-signup').addEventListener('click', async () => {
-            const result = await window.app.loginWithGoogle();
-            
-            if (result.success) {
+            try {
+              const provider = new firebase.auth.GoogleAuthProvider();
+              const result = await firebase.getAuth().signInWithPopup(provider);
+              const user = result.user;
+              
+              // Проверка существования пользователя в Realtime Database
+              const userSnapshot = await firebase.getDatabase().ref('users/' + user.uid).once('value');
+              const userExists = userSnapshot.exists();
+              
+              if (!userExists) {
+                // Создание документа пользователя, если его нет
+                const userData = {
+                  name: user.displayName,
+                  email: user.email,
+                  avatar: user.photoURL,
+                  createdAt: new Date().toISOString(),
+                  status: 'online',
+                  lastSeen: new Date().toISOString(),
+                  settings: {
+                    theme: 'light',
+                    chatBackground: 'bg1'
+                  }
+                };
+                
+                await firebase.getDatabase().ref('users/' + user.uid).set(userData);
+              } else {
+                // Обновление существующего документа
+                await firebase.getDatabase().ref('users/' + user.uid).update({
+                  name: user.displayName,
+                  email: user.email,
+                  avatar: user.photoURL,
+                  status: 'online',
+                  lastSeen: new Date().toISOString()
+                });
+              }
+              
               window.showSuccess('Вход через Google успешен!');
               setTimeout(() => {
                 window.navigateTo('app.html');
               }, 1500);
-            } else {
-              window.showError(result.message);
+            } catch (error) {
+              let message = 'Ошибка входа через Google. Пожалуйста, попробуйте еще раз.';
+              if (error.code === 'auth/popup-closed-by-user') {
+                message = 'Окно авторизации закрыто. Пожалуйста, попробуйте снова.';
+              }
+              
+              window.showError(message);
             }
           });
           
@@ -169,34 +237,36 @@
             const email = document.getElementById('signup-email').value;
             const statusEl = document.getElementById('email-status');
             
-            if (!email) {
-              statusEl.textContent = '';
-              statusEl.style.color = '';
-              return;
-            }
+            if (!email || !statusEl) return;
             
-            const emailExists = await window.app.checkEmailExists(email);
-            
-            if (emailExists) {
-              statusEl.textContent = 'Этот email уже используется';
+            try {
+              const methods = await firebase.getAuth().fetchSignInMethodsForEmail(email);
+              
+              if (methods.length > 0) {
+                statusEl.textContent = 'Этот email уже используется';
+                statusEl.style.color = '#ea4335';
+              } else {
+                statusEl.textContent = 'Email доступен';
+                statusEl.style.color = '#34a853';
+              }
+            } catch (error) {
+              statusEl.textContent = 'Ошибка проверки';
               statusEl.style.color = '#ea4335';
-            } else {
-              statusEl.textContent = 'Email доступен';
-              statusEl.style.color = '#34a853';
             }
           });
           
-          // Проверка пароля
+          // Проверка силы пароля
           document.getElementById('signup-password').addEventListener('input', () => {
             const password = document.getElementById('signup-password').value;
             const strengthEl = document.getElementById('password-strength');
             
-            if (!password) {
-              strengthEl.textContent = '';
-              return;
-            }
+            if (!password || !strengthEl) return;
             
-            const strength = window.app.checkPasswordStrength(password);
+            let strength = 0;
+            if (password.length >= 8) strength++;
+            if (/[A-Z]/.test(password)) strength++;
+            if (/[0-9]/.test(password)) strength++;
+            if (/[^A-Za-z0-9]/.test(password)) strength++;
             
             const strengthText = [
               'Слабый пароль',
@@ -214,16 +284,13 @@
             ][strength];
           });
           
-          // Проверка подтверждения пароля
+          // Проверка совпадения паролей
           document.getElementById('signup-confirm').addEventListener('input', () => {
             const password = document.getElementById('signup-password').value;
             const confirm = document.getElementById('signup-confirm').value;
             const matchEl = document.getElementById('password-match');
             
-            if (!confirm) {
-              matchEl.textContent = '';
-              return;
-            }
+            if (!confirm || !matchEl) return;
             
             if (password === confirm) {
               matchEl.textContent = 'Пароли совпадают';
@@ -236,7 +303,32 @@
         })
         .catch(error => {
           console.error('Ошибка инициализации Firebase:', error);
-          window.showError('Не удалось подключиться к Firebase. Проверьте интернет-соединение.');
+          document.body.innerHTML = `
+            <div class="mobile-frame android">
+              <div class="auth-container">
+                <div class="google-logo">
+                  <span class="G">G</span>
+                  <span class="o">o</span>
+                  <span class="o">o</span>
+                  <span class="g">g</span>
+                  <span class="l">l</span>
+                  <span class="t">t</span>
+                  <span class="h">h</span>
+                  <span class="A">A</span>
+                  <span class="p">p</span>
+                  <span class="p">p</span>
+                </div>
+                
+                <div class="login-card" style="text-align: center; padding: 30px;">
+                  <h2>Ошибка инициализации</h2>
+                  <p style="margin: 15px 0; color: #5f6368;">Не удалось подключиться к Firebase. Проверьте интернет-соединение.</p>
+                  <button onclick="window.location.reload()" style="padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 4px; cursor: pointer;">
+                    Попробовать снова
+                  </button>
+                </div>
+              </div>
+            </div>
+          `;
         });
     });
   </script>
